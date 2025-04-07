@@ -20,11 +20,41 @@ import os
 import ray
 import hydra
 
+
+def get_custom_reward_fn(config):
+    import importlib.util, os
+
+    reward_fn_config = config.get("custom_reward_function") or {}
+    file_path = reward_fn_config.get("path")
+    if not file_path:
+        return None
+
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"Reward function file '{file_path}' not found.")
+
+    spec = importlib.util.spec_from_file_location("custom_module", file_path)
+    module = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(module)
+    except Exception as e:
+        raise RuntimeError(f"Error loading module from '{file_path}': {e}")
+
+    function_name = reward_fn_config.get("name")
+
+    if not hasattr(module, function_name):
+        raise AttributeError(f"Reward function '{function_name}' not found in '{file_path}'.")
+
+    print(f"using customized reward function '{function_name}' from '{file_path}'")
+
+    return getattr(module, function_name)
+
+
 @hydra.main(config_path='config', config_name='sppo_trainer', version_base=None)
 def main(config):
-    run_sppo(config)
-    
-def run_sppo(config) -> None:
+    run_ppo(config)
+
+
+def run_ppo(config) -> None:
     # TODO(linjunrong.ocss884): this ENV is left for resolving SGLang conflict with ray devices
     # isolation, will solve in the future
     os.environ["ENSURE_CUDA_VISIBLE_DEVICES"] = os.environ.get('CUDA_VISIBLE_DEVICES', '')
@@ -41,8 +71,10 @@ def run_sppo(config) -> None:
     runner = TaskRunner.remote()
     ray.get(runner.run.remote(config))
 
+
 @ray.remote(num_cpus=1)  # please make sure main_task is not scheduled on head
 class TaskRunner:
+
     def run(self, config):
         from verl.utils.fs import copy_to_local
         # print initial config
@@ -62,23 +94,25 @@ class TaskRunner:
 
         # define worker classes
         if config.actor_rollout_ref.actor.strategy == 'fsdp':
-            # No critic
-            # from verl.workers.fsdp_workers import ActorRolloutRefWorker
-            from .fsdp_workers import SPPOWorker
+            # assert config.actor_rollout_ref.actor.strategy == config.critic.strategy
+            from verl.workers.fsdp_workers import ActorRolloutRefWorker #, CriticWorker
             from verl.single_controller.ray import RayWorkerGroup
             ray_worker_group_cls = RayWorkerGroup
 
         elif config.actor_rollout_ref.actor.strategy == 'megatron':
-            raise NotImplementedError
-        
+            assert config.actor_rollout_ref.actor.strategy == config.critic.strategy
+            from verl.workers.megatron_workers import ActorRolloutRefWorker #, CriticWorker
+            from verl.single_controller.ray.megatron import NVMegatronRayWorkerGroup
+            ray_worker_group_cls = NVMegatronRayWorkerGroup
+
         else:
             raise NotImplementedError
 
         from verl.trainer.ppo.ray_trainer import ResourcePoolManager, Role
 
         role_worker_mapping = {
-            Role.ActorRollout: ray.remote(SPPOWorker),
-            Role.RefPolicy: ray.remote(SPPOWorker)
+            Role.ActorRollout: ray.remote(ActorRolloutRefWorker),
+            # Role.Critic: ray.remote(CriticWorker),
         }
 
         global_pool_id = 'global_pool'
@@ -87,6 +121,7 @@ class TaskRunner:
         }
         mapping = {
             Role.ActorRollout: global_pool_id,
+            # Role.Critic: global_pool_id,
         }
 
         # we should adopt a multi-source reward function here
@@ -99,7 +134,7 @@ class TaskRunner:
             if config.reward_model.strategy == 'fsdp':
                 from verl.workers.fsdp_workers import RewardModelWorker
             elif config.reward_model.strategy == 'megatron':
-                raise NotImplementedError
+                from verl.workers.megatron_workers import RewardModelWorker
             else:
                 raise NotImplementedError
             role_worker_mapping[Role.RewardModel] = ray.remote(RewardModelWorker)
@@ -107,7 +142,7 @@ class TaskRunner:
 
         #use reference model
         if config.algorithm.use_kl_in_reward or config.actor_rollout_ref.actor.use_kl_loss:
-            role_worker_mapping[Role.RefPolicy] = ray.remote(SPPOWorker)
+            role_worker_mapping[Role.RefPolicy] = ray.remote(ActorRolloutRefWorker)
             mapping[Role.RefPolicy] = global_pool_id
 
         reward_manager_name = config.reward_model.get("reward_manager", "naive")
@@ -148,9 +183,12 @@ class TaskRunner:
         trainer.init_workers()
         trainer.fit()
 
+
 if __name__ == '__main__':
     from verl.workers.actor import DataParallelPPOActor
+    print(DataParallelPPOActor.update_policy)
     from dp_actor import update_policy
     DataParallelPPOActor.update_policy = update_policy
+    print("===================================DataParallelPPOActor.update_policy===============================================")
+    print(DataParallelPPOActor.update_policy)
     main()
-    

@@ -26,7 +26,9 @@ def compute_sppo_loss(
     log_ratios = log_prob_sum - old_log_prob_sum  # (bs,)
 
     preference = eta * (response_mask - 0.5)  # (bs,)
+    print("shape", log_ratios.shape, rewards.shape)
     loss_vec = (log_ratios - rewards) ** 2  # (bs,)
+    
 
     if loss_agg_mode == "seq-mean-token-sum":
         loss = loss_vec.mean()
@@ -44,12 +46,14 @@ def compute_sppo_loss(
 
 
 def update_policy(self, data: DataProto):
+    print("===========================================================================================")
+    print("==================================Patch====================================================")
     # make sure we are in training mode
     self.actor_module.train()
 
     temperature = data.meta_info['temperature']  # temperature must be in the data.meta_info to avoid slient error
 
-    select_keys = ['responses', 'input_ids', 'attention_mask', 'position_ids', 'old_log_probs', 'advantages']
+    select_keys = ['responses', 'input_ids', 'attention_mask', 'position_ids', 'old_log_probs', 'token_level_rewards']
     if self.config.use_kl_loss:
         select_keys.append('ref_log_prob')
     batch = data.select(batch_keys=select_keys).batch
@@ -105,7 +109,7 @@ def update_policy(self, data: DataProto):
                 pg_loss, log_ratios, preference = compute_sppo_loss(
                     old_log_prob=old_log_prob,
                     log_prob=log_prob,
-                    rewards=rewards,
+                    rewards=rewards.sum(axis=-1),
                     response_mask=response_mask,
                     eta=self.config.get('sppo_eta', 1.0),
                     loss_agg_mode=loss_agg_mode,

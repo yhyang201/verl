@@ -20,6 +20,37 @@ from verl.trainer.ppo.metric_utils import (compute_data_metrics, compute_through
 
     
 class RaySPPOTrainer(RayPPOTrainer):
+    def __init__(self,
+                 config,
+                 tokenizer,
+                 role_worker_mapping: dict,
+                 resource_pool_manager,
+                 ray_worker_group_cls=None,
+                 processor=None,
+                 reward_fn=None,
+                 val_reward_fn=None):
+        from verl.workers.actor import DataParallelPPOActor
+        from dp_actor import update_policy
+
+        print("🧩 Before patch:", DataParallelPPOActor.update_policy)
+
+        # ✅ Monkey patch
+        DataParallelPPOActor.update_policy = update_policy
+
+        print("✅ Patched DataParallelPPOActor.update_policy!")
+        print("🧩 After patch:", DataParallelPPOActor.update_policy)
+        print("==============================================")
+
+        # 👇 Now call the parent constructor
+        super().__init__(config=config,
+                         tokenizer=tokenizer,
+                         role_worker_mapping=role_worker_mapping,
+                         resource_pool_manager=resource_pool_manager,
+                         ray_worker_group_cls=ray_worker_group_cls,
+                         processor=processor,
+                         reward_fn=reward_fn,
+                         val_reward_fn=val_reward_fn)
+        
     def fit(self):
         """
         The training loop of PPO.

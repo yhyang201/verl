@@ -516,8 +516,6 @@ class RayPPOTrainer(object):
                                            interleave=True)
 
             # we only do validation on rule-based rm
-            print(f"self.config.reward_model.enable= {self.config.reward_model.enable}")
-            print(f"test_batch[0].non_tensor_batch['reward_model']['style'] = {test_batch[0].non_tensor_batch['reward_model']['style']}")
             if self.config.reward_model.enable and test_batch[0].non_tensor_batch['reward_model']['style'] == 'model':
                 return {}
 
@@ -565,8 +563,6 @@ class RayPPOTrainer(object):
             # evaluate using reward_function
             result = self.val_reward_fn(test_batch, return_dict=True)
             reward_tensor = result["reward_tensor"]
-            print("==========================over????==========================================================================")
-            print(f"=============================================={reward_tensor.shape}========================================")
             scores = reward_tensor.sum(-1).cpu().tolist()
             sample_scores.extend(scores)
             if "reward_extra_info" in result:
@@ -584,11 +580,9 @@ class RayPPOTrainer(object):
         data_sources = np.concatenate(data_source_lst, axis=0)
 
         data_src2var2metric2val = process_validation_metrics(data_sources, sample_inputs, reward_extra_infos_dict)
-        print(f"======================================data_src2var2metric2val=====================================")
-        print(f"data_src2var2metric2val shape = {len(data_src2var2metric2val.items())}")
+
         metric_dict = {}
         for data_source, var2metric2val in data_src2var2metric2val.items():
-            printf("==================================for loop====================================================")
             core_var = "acc" if "acc" in var2metric2val else "final_reward"
             for var_name, metric2val in var2metric2val.items():
                 n_max = max([int(name.split("@")[-1].split("/")[0]) for name in metric2val.keys()])

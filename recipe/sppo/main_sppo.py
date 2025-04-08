@@ -185,10 +185,4 @@ class TaskRunner:
 
 
 if __name__ == '__main__':
-    from verl.workers.actor import DataParallelPPOActor
-    print(DataParallelPPOActor.update_policy)
-    from dp_actor import update_policy
-    DataParallelPPOActor.update_policy = update_policy
-    print("===================================DataParallelPPOActor.update_policy===============================================")
-    print(DataParallelPPOActor.update_policy)
     main()

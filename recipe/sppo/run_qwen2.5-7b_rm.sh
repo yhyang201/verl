@@ -20,7 +20,7 @@ huggingface-cli download Qwen/Qwen2.5-7B-Instruct --local-dir $HOME/models/Qwen2
 # huggingface-cli download sfairXC/FsfairX-LLaMA3-RM-v0.1 --local-dir $HOME/models/FsfairX-LLaMA3-RM-v0.1 &
 wait
 
-CUDA_VISIBLE_DEVICES=6,7 python3 -m recipe.sppo.main_sppo \
+CUDA_VISIBLE_DEVICES=4,5,6,7 python3 -m recipe.sppo.main_sppo \
     data.train_files="$train_files" \
     data.val_files="$test_files" \
     data.train_batch_size=1024 \
@@ -45,12 +45,12 @@ CUDA_VISIBLE_DEVICES=6,7 python3 -m recipe.sppo.main_sppo \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.6 \
     algorithm.use_kl_in_reward=False \
     trainer.critic_warmup=0 \
-    trainer.logger=['console'] \
+    trainer.logger=['console','wandb'] \
     trainer.project_name='verl_example' \
     trainer.val_before_train=True \
     trainer.val_only=False \
     trainer.experiment_name='Qwen2-7B-Instruct_hybrid_rm' \
-    trainer.n_gpus_per_node=2 \
+    trainer.n_gpus_per_node=4 \
     trainer.nnodes=1 \
     trainer.save_freq=-1 \
     trainer.test_freq=1 \

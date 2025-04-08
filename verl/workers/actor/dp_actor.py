@@ -459,7 +459,7 @@ def compute_sppo_loss(
     rewards: torch.Tensor,        # (bs,)
     response_mask: torch.Tensor,     # (bs, seq_len)
     eta: float = 1.0,
-    loss_agg_mode: str = "token-mean"
+    loss_agg_mode: str = "seq-mean-token-sum"
 ):
     """
     SPPO Loss computation.
@@ -467,10 +467,11 @@ def compute_sppo_loss(
     # Compute log-ratios over masked tokens
     log_prob_sum = (log_prob * response_mask).sum(dim=1)  # (bs,)
     old_log_prob_sum = (old_log_prob * response_mask).sum(dim=1)  # (bs,)
+    
     log_ratios = log_prob_sum - old_log_prob_sum  # (bs,)
 
-    preference = eta * (response_mask - 0.5)  # (bs,)
-    loss_vec = (log_ratios - rewards) ** 2  # (bs,)
+    scaled_rewards = eta * (rewards - 0.5)
+    loss_vec = (log_ratios - scaled_rewards) ** 2  # (bs,)
     
 
     if loss_agg_mode == "seq-mean-token-sum":
@@ -485,4 +486,4 @@ def compute_sppo_loss(
     else:
         raise ValueError(f"Unsupported loss_agg_mode: {loss_agg_mode}")
 
-    return loss, log_ratios, preference
+    return loss, log_ratios, scaled_rewards 

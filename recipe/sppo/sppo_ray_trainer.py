@@ -17,39 +17,105 @@ from verl.single_controller.base.decorator import register, Dispatch
 from verl.trainer.ppo.ray_trainer import RayPPOTrainer, _timer, apply_kl_penalty, compute_advantage, AdvantageEstimator, compute_response_mask
 from verl.trainer.ppo.metric_utils import (compute_data_metrics, compute_throughout_metrics, compute_timing_metrics,
                                            reduce_metrics)
+from typing import Any, Dict, List, Callable
 
+def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> Dict[str, Any]:
+    # TODO: add response length
+    sequence_score = batch.batch['token_level_scores'].sum(-1)
+    sequence_reward = batch.batch['token_level_rewards'].sum(-1)
+
+    # advantages = batch.batch['advantages']
+    # returns = batch.batch['returns']
+
+    max_response_length = batch.batch['responses'].shape[-1]
+
+    prompt_mask = batch.batch['attention_mask'][:, :-max_response_length].bool()
+    response_mask = batch.batch['attention_mask'][:, -max_response_length:].bool()
+
+    max_prompt_length = prompt_mask.size(-1)
+
+    response_info = _compute_response_info(batch)
+    prompt_length = response_info['prompt_length']
+    response_length = response_info['response_length']
+
+    # valid_adv = torch.masked_select(advantages, response_mask)
+    # valid_returns = torch.masked_select(returns, response_mask)
+
+    if use_critic:
+        values = batch.batch['values']
+        valid_values = torch.masked_select(values, response_mask)
+        return_diff_var = torch.var(valid_returns - valid_values)
+        return_var = torch.var(valid_returns)
+
+    metrics = {
+        # score
+        'critic/score/mean':
+            torch.mean(sequence_score).detach().item(),
+        'critic/score/max':
+            torch.max(sequence_score).detach().item(),
+        'critic/score/min':
+            torch.min(sequence_score).detach().item(),
+        # reward
+        'critic/rewards/mean':
+            torch.mean(sequence_reward).detach().item(),
+        'critic/rewards/max':
+            torch.max(sequence_reward).detach().item(),
+        'critic/rewards/min':
+            torch.min(sequence_reward).detach().item(),
+
+
+        # response length
+        'response_length/mean':
+            torch.mean(response_length).detach().item(),
+        'response_length/max':
+            torch.max(response_length).detach().item(),
+        'response_length/min':
+            torch.min(response_length).detach().item(),
+        'response_length/clip_ratio':
+            torch.mean(torch.eq(response_length, max_response_length).float()).detach().item(),
+        # prompt length
+        'prompt_length/mean':
+            torch.mean(prompt_length).detach().item(),
+        'prompt_length/max':
+            torch.max(prompt_length).detach().item(),
+        'prompt_length/min':
+            torch.min(prompt_length).detach().item(),
+        'prompt_length/clip_ratio':
+            torch.mean(torch.eq(prompt_length, max_prompt_length).float()).detach().item(),
+    }
+    return metrics
     
 class RaySPPOTrainer(RayPPOTrainer):
-    def __init__(self,
-                 config,
-                 tokenizer,
-                 role_worker_mapping: dict,
-                 resource_pool_manager,
-                 ray_worker_group_cls=None,
-                 processor=None,
-                 reward_fn=None,
-                 val_reward_fn=None):
-        from verl.workers.actor import DataParallelPPOActor
-        from dp_actor import update_policy
+    # def __init__(self,
+    #              config,
+    #              tokenizer,
+    #              role_worker_mapping: dict,
+    #              resource_pool_manager,
+    #              ray_worker_group_cls=None,
+    #              processor=None,
+    #              reward_fn=None,
+    #              val_reward_fn=None):
+    #     from verl.workers.actor import DataParallelPPOActor
+    #     from dp_actor import update_policy
 
-        print("🧩 Before patch:", DataParallelPPOActor.update_policy)
+    #     print("🧩 Before patch:", DataParallelPPOActor.update_policy)
 
-        # ✅ Monkey patch
-        DataParallelPPOActor.update_policy = update_policy
+    #     # ✅ Monkey patch
+    #     DataParallelPPOActor.update_policy = update_policy
 
-        print("✅ Patched DataParallelPPOActor.update_policy!")
-        print("🧩 After patch:", DataParallelPPOActor.update_policy)
-        print("==============================================")
+    #     print("✅ Patched DataParallelPPOActor.update_policy!")
+    #     print("🧩 After patch:", DataParallelPPOActor.update_policy)
+    #     print("==============================================")
 
-        # 👇 Now call the parent constructor
-        super().__init__(config=config,
-                         tokenizer=tokenizer,
-                         role_worker_mapping=role_worker_mapping,
-                         resource_pool_manager=resource_pool_manager,
-                         ray_worker_group_cls=ray_worker_group_cls,
-                         processor=processor,
-                         reward_fn=reward_fn,
-                         val_reward_fn=val_reward_fn)
+    #     # 👇 Now call the parent constructor
+    #     super().__init__(config=config,
+    #                      tokenizer=tokenizer,
+    #                      role_worker_mapping=role_worker_mapping,
+    #                      resource_pool_manager=resource_pool_manager,
+    #                      ray_worker_group_cls=ray_worker_group_cls,
+    #                      processor=processor,
+    #                      reward_fn=reward_fn,
+    #                      val_reward_fn=val_reward_fn)
         
     def fit(self):
         """
@@ -203,10 +269,13 @@ class RaySPPOTrainer(RayPPOTrainer):
                         metrics.update(actor_output_metrics)
 
                     # validate
+                    assert self.val_reward_fn is not None
+                    assert self.config.trainer.test_freq > 0
                     if self.val_reward_fn is not None and self.config.trainer.test_freq > 0 and \
                         (is_last_step or  self.global_steps % self.config.trainer.test_freq == 0):
                         with _timer('testing', timing_raw):
                             val_metrics: dict = self._validate()
+                            print(f"========================================={val_metrics}==============================================")
                             if is_last_step:
                                 last_val_metrics = val_metrics
                         metrics.update(val_metrics)
@@ -217,11 +286,11 @@ class RaySPPOTrainer(RayPPOTrainer):
                             self._save_checkpoint()
 
                 # collect metrics
-                metrics.update(compute_data_metrics(batch=batch, use_critic=self.use_critic))
-                metrics.update(compute_timing_metrics(batch=batch, timing_raw=timing_raw))
+                # metrics.update(compute_data_metrics(batch=batch, use_critic=self.use_critic))
+                # metrics.update(compute_timing_metrics(batch=batch, timing_raw=timing_raw))
                 # TODO: implement actual tflpo and theoretical tflpo
                 n_gpus = self.resource_pool_manager.get_n_gpus()
-                metrics.update(compute_throughout_metrics(batch=batch, timing_raw=timing_raw, n_gpus=n_gpus))
+                # metrics.update(compute_throughout_metrics(batch=batch, timing_raw=timing_raw, n_gpus=n_gpus))
 
                 # TODO: make a canonical logger that supports various backend
                 logger.log(data=metrics, step=self.global_steps)

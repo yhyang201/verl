@@ -74,17 +74,6 @@ class ActorRolloutRefWorker(Worker):
     """
 
     def __init__(self, config: DictConfig, role: str):
-        from verl.workers.actor import DataParallelPPOActor
-        from dp_actor import update_policy
-
-        print("🧩 Before patch:", DataParallelPPOActor.update_policy)
-
-        # ✅ Monkey patch
-        DataParallelPPOActor.update_policy = update_policy
-
-        print("✅ Patched DataParallelPPOActor.update_policy!")
-        print("🧩 After patch:", DataParallelPPOActor.update_policy)
-        print("==============================================")
         super().__init__()
         self.config = config
         import torch.distributed
@@ -376,8 +365,6 @@ class ActorRolloutRefWorker(Worker):
     @register(dispatch_mode=Dispatch.ONE_TO_ALL)
     def init_model(self):
         from verl.workers.actor import DataParallelPPOActor
-        print("=============================init model========================================")
-        print(DataParallelPPOActor.update_policy)
         # This is used to import external_lib into the huggingface systems
         import_external_libs(self.config.model.get('external_lib', None))
 

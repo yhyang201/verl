@@ -26,7 +26,6 @@ def compute_sppo_loss(
     log_ratios = log_prob_sum - old_log_prob_sum  # (bs,)
 
     preference = eta * (response_mask - 0.5)  # (bs,)
-    print("shape", log_ratios.shape, rewards.shape)
     loss_vec = (log_ratios - rewards) ** 2  # (bs,)
     
 
@@ -46,8 +45,6 @@ def compute_sppo_loss(
 
 
 def update_policy(self, data: DataProto):
-    print("===========================================================================================")
-    print("==================================Patch====================================================")
     # make sure we are in training mode
     self.actor_module.train()
 
@@ -105,7 +102,7 @@ def update_policy(self, data: DataProto):
 
                 # all return: (bsz, response_length)
                 entropy, log_prob = self._forward_micro_batch(micro_batch=data, temperature=temperature)
-
+                print(old_log_prob.device, log_prob.device, rewards.device)
                 pg_loss, log_ratios, preference = compute_sppo_loss(
                     old_log_prob=old_log_prob,
                     log_prob=log_prob,
@@ -114,6 +111,7 @@ def update_policy(self, data: DataProto):
                     eta=self.config.get('sppo_eta', 1.0),
                     loss_agg_mode=loss_agg_mode,
                 )
+                print(pg_loss.device, log_ratios.device, preference.device)
                 # compute entropy loss from entropy
                 entropy_loss = agg_loss(loss_mat=entropy, loss_mask=response_mask, loss_agg_mode=loss_agg_mode)
 

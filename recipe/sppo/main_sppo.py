@@ -96,7 +96,7 @@ class TaskRunner:
         # define worker classes
         if config.actor_rollout_ref.actor.strategy == 'fsdp':
             # assert config.actor_rollout_ref.actor.strategy == config.critic.strategy
-            from .sppo_worker import ActorRolloutRefWorker #, CriticWorker
+            from .sppo_worker import SPPOActorRolloutRefWorker #, CriticWorker
             from verl.single_controller.ray import RayWorkerGroup
             ray_worker_group_cls = RayWorkerGroup
 
@@ -109,7 +109,7 @@ class TaskRunner:
         from verl.trainer.ppo.ray_trainer import ResourcePoolManager, Role
 
         role_worker_mapping = {
-            Role.ActorRollout: ray.remote(ActorRolloutRefWorker),
+            Role.ActorRollout: ray.remote(SPPOActorRolloutRefWorker),
             # Role.Critic: ray.remote(CriticWorker),
         }
 
@@ -140,7 +140,7 @@ class TaskRunner:
 
         #use reference model
         if config.algorithm.use_kl_in_reward or config.actor_rollout_ref.actor.use_kl_loss:
-            role_worker_mapping[Role.RefPolicy] = ray.remote(ActorRolloutRefWorker)
+            role_worker_mapping[Role.RefPolicy] = ray.remote(SPPOActorRolloutRefWorker)
             mapping[Role.RefPolicy] = global_pool_id
 
         reward_manager_name = config.reward_model.get("reward_manager", "naive")

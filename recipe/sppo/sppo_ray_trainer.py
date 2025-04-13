@@ -3,88 +3,29 @@ FSDP PPO Trainer with Ray-based single controller.
 This trainer supports model-agonistic model initialization with huggingface
 """
 
+import os
 import uuid
-from pprint import pprint
-from copy import deepcopy
-from collections import defaultdict
-from tqdm import tqdm
-import numpy as np
 import torch
 
+
+from contextlib import contextmanager
+from dataclasses import dataclass, field
+from enum import Enum
+from pprint import pprint
+from typing import Type, Dict
+from copy import deepcopy
+from collections import defaultdict
+from functools import partial
+from tqdm import tqdm
+
+import numpy as np
 from verl import DataProto
-from verl.single_controller.base import Worker
-from verl.single_controller.base.decorator import register, Dispatch
-from verl.trainer.ppo.ray_trainer import RayPPOTrainer, _timer, apply_kl_penalty, compute_advantage, AdvantageEstimator, compute_response_mask
-from verl.trainer.ppo.metric_utils import (compute_data_metrics, compute_throughout_metrics, compute_timing_metrics,
-                                           reduce_metrics)
-from typing import Any, Dict, List, Callable
+from verl.single_controller.ray import RayWorkerGroup
+from verl.trainer.ppo import core_algos
+from verl.trainer.ppo.metric_utils import compute_data_metrics, compute_throughout_metrics, compute_timing_metrics, reduce_metrics
+from verl.trainer.ppo.ray_trainer import RayPPOTrainer, Role, WorkerType, ResourcePoolManager, _timer, apply_kl_penalty, compute_response_mask
+from verl.utils.tracking import ValidationGenerationsLogger
 
-def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> Dict[str, Any]:
-    # TODO: add response length
-    sequence_score = batch.batch['token_level_scores'].sum(-1)
-    sequence_reward = batch.batch['token_level_rewards'].sum(-1)
-
-    # advantages = batch.batch['advantages']
-    # returns = batch.batch['returns']
-
-    max_response_length = batch.batch['responses'].shape[-1]
-
-    prompt_mask = batch.batch['attention_mask'][:, :-max_response_length].bool()
-    response_mask = batch.batch['attention_mask'][:, -max_response_length:].bool()
-
-    max_prompt_length = prompt_mask.size(-1)
-
-    response_info = _compute_response_info(batch)
-    prompt_length = response_info['prompt_length']
-    response_length = response_info['response_length']
-
-    # valid_adv = torch.masked_select(advantages, response_mask)
-    # valid_returns = torch.masked_select(returns, response_mask)
-
-    if use_critic:
-        values = batch.batch['values']
-        valid_values = torch.masked_select(values, response_mask)
-        return_diff_var = torch.var(valid_returns - valid_values)
-        return_var = torch.var(valid_returns)
-
-    metrics = {
-        # score
-        'critic/score/mean':
-            torch.mean(sequence_score).detach().item(),
-        'critic/score/max':
-            torch.max(sequence_score).detach().item(),
-        'critic/score/min':
-            torch.min(sequence_score).detach().item(),
-        # reward
-        'critic/rewards/mean':
-            torch.mean(sequence_reward).detach().item(),
-        'critic/rewards/max':
-            torch.max(sequence_reward).detach().item(),
-        'critic/rewards/min':
-            torch.min(sequence_reward).detach().item(),
-
-
-        # response length
-        'response_length/mean':
-            torch.mean(response_length).detach().item(),
-        'response_length/max':
-            torch.max(response_length).detach().item(),
-        'response_length/min':
-            torch.min(response_length).detach().item(),
-        'response_length/clip_ratio':
-            torch.mean(torch.eq(response_length, max_response_length).float()).detach().item(),
-        # prompt length
-        'prompt_length/mean':
-            torch.mean(prompt_length).detach().item(),
-        'prompt_length/max':
-            torch.max(prompt_length).detach().item(),
-        'prompt_length/min':
-            torch.min(prompt_length).detach().item(),
-        'prompt_length/clip_ratio':
-            torch.mean(torch.eq(prompt_length, max_prompt_length).float()).detach().item(),
-    }
-    return metrics
-    
 class RaySPPOTrainer(RayPPOTrainer):
     def __init__(self,
                  config,
@@ -122,15 +63,8 @@ class RaySPPOTrainer(RayPPOTrainer):
         if config.algorithm.use_kl_in_reward:
             self.kl_ctrl_in_reward = core_algos.get_kl_controller(config.algorithm.kl_ctrl)
 
-        if self.config.algorithm.adv_estimator == AdvantageEstimator.GAE:
-            self.use_critic = True
-        elif self.config.algorithm.adv_estimator in [
-                AdvantageEstimator.GRPO, AdvantageEstimator.REINFORCE_PLUS_PLUS, AdvantageEstimator.REMAX,
-                AdvantageEstimator.RLOO, AdvantageEstimator.REINFORCE_PLUS_PLUS_BASELINE
-        ]:
-            self.use_critic = False
-        else:
-            self.use_critic = False
+        
+        self.use_critic = False
             # raise NotImplementedError
 
         self._validate_config()
@@ -283,6 +217,8 @@ class RaySPPOTrainer(RayPPOTrainer):
                     if self.config.trainer.critic_warmup <= self.global_steps:
                         # update actor
                         with _timer('update_actor', timing_raw):
+                            print("\033[33m" + f"{self.actor_rollout_wg}" + "\033[0m")
+                            print("\033[33m" + f"{self.actor_rollout_wg.update_actor}" + "\033[0m")
                             actor_output = self.actor_rollout_wg.update_actor(batch)
                         actor_output_metrics = reduce_metrics(actor_output.meta_info['metrics'])
                         metrics.update(actor_output_metrics)

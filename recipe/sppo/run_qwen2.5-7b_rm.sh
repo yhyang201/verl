@@ -13,14 +13,12 @@ gsm8k_test_path=$HOME/data/gsm8k/test.parquet
 train_files="['$gsm8k_train_path']"
 test_files="['$gsm8k_test_path']"
 
-export VLLM_ATTENTION_BACKEND=XFORMERS # vllm + qwen2-7b with flash_attn has some issues
-
 # prepare model ckpt
 huggingface-cli download Qwen/Qwen2.5-7B-Instruct --local-dir $HOME/models/Qwen2.5-7B-Instruct &
 # huggingface-cli download sfairXC/FsfairX-LLaMA3-RM-v0.1 --local-dir $HOME/models/FsfairX-LLaMA3-RM-v0.1 &
 wait
 
-CUDA_VISIBLE_DEVICES=4,5,6,7 python3 -m recipe.sppo.main_sppo \
+python3 -m recipe.sppo.main_sppo \
     data.train_files="$train_files" \
     data.val_files="$test_files" \
     data.train_batch_size=1024 \
@@ -41,7 +39,7 @@ CUDA_VISIBLE_DEVICES=4,5,6,7 python3 -m recipe.sppo.main_sppo \
     actor_rollout_ref.actor.fsdp_config.optimizer_offload=False \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=16 \
     actor_rollout_ref.rollout.tensor_model_parallel_size=1 \
-    actor_rollout_ref.rollout.name=vllm \
+    actor_rollout_ref.rollout.name=sglang  \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.6 \
     algorithm.use_kl_in_reward=False \
     trainer.critic_warmup=0 \

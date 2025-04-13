@@ -9,40 +9,6 @@ from verl.utils.seqlen_balancing import rearrange_micro_batches, get_reverse_idx
 
 import verl.utils.torch_functional as verl_F
 
-def compute_sppo_loss(
-    old_log_prob: torch.Tensor,      # (bs, seq_len)
-    log_prob: torch.Tensor,          # (bs, seq_len)
-    rewards: torch.Tensor,        # (bs,)
-    response_mask: torch.Tensor,     # (bs, seq_len)
-    eta: float = 1.0,
-    loss_agg_mode: str = "token-mean"
-):
-    """
-    SPPO Loss computation.
-    """
-    # Compute log-ratios over masked tokens
-    log_prob_sum = (log_prob * response_mask).sum(dim=1)  # (bs,)
-    old_log_prob_sum = (old_log_prob * response_mask).sum(dim=1)  # (bs,)
-    log_ratios = log_prob_sum - old_log_prob_sum  # (bs,)
-
-    preference = eta * (response_mask - 0.5)  # (bs,)
-    loss_vec = (log_ratios - rewards) ** 2  # (bs,)
-    
-
-    if loss_agg_mode == "seq-mean-token-sum":
-        loss = loss_vec.mean()
-    elif loss_agg_mode == "seq-mean-token-mean":
-        seq_lengths = response_mask.sum(dim=1)  # (bs,)
-        token_mean_loss = loss_vec / seq_lengths.clamp(min=1)
-        loss = token_mean_loss.mean()
-    elif loss_agg_mode == "token-mean":
-        sample_mask = response_mask.any(dim=1).float()  # (bs,)
-        loss = verl_F.masked_mean(loss_vec, sample_mask)       
-    else:
-        raise ValueError(f"Unsupported loss_agg_mode: {loss_agg_mode}")
-
-    return loss, log_ratios, preference
-
 
 def update_policy(self, data: DataProto):
     # make sure we are in training mode
@@ -152,3 +118,37 @@ def update_policy(self, data: DataProto):
         append_to_dict(metrics, data)
     self.actor_optimizer.zero_grad()
     return metrics
+
+def compute_sppo_loss(
+    old_log_prob: torch.Tensor,      # (bs, seq_len)
+    log_prob: torch.Tensor,          # (bs, seq_len)
+    rewards: torch.Tensor,        # (bs,)
+    response_mask: torch.Tensor,     # (bs, seq_len)
+    eta: float = 1.0,
+    loss_agg_mode: str = "token-mean"
+):
+    """
+    SPPO Loss computation.
+    """
+    # Compute log-ratios over masked tokens
+    log_prob_sum = (log_prob * response_mask).sum(dim=1)  # (bs,)
+    old_log_prob_sum = (old_log_prob * response_mask).sum(dim=1)  # (bs,)
+    log_ratios = log_prob_sum - old_log_prob_sum  # (bs,)
+
+    preference = eta * (response_mask - 0.5)  # (bs,)
+    loss_vec = (log_ratios - rewards) ** 2  # (bs,)
+    
+
+    if loss_agg_mode == "seq-mean-token-sum":
+        loss = loss_vec.mean()
+    elif loss_agg_mode == "seq-mean-token-mean":
+        seq_lengths = response_mask.sum(dim=1)  # (bs,)
+        token_mean_loss = loss_vec / seq_lengths.clamp(min=1)
+        loss = token_mean_loss.mean()
+    elif loss_agg_mode == "token-mean":
+        sample_mask = response_mask.any(dim=1).float()  # (bs,)
+        loss = verl_F.masked_mean(loss_vec, sample_mask)       
+    else:
+        raise ValueError(f"Unsupported loss_agg_mode: {loss_agg_mode}")
+
+    return loss, log_ratios, preference

@@ -86,36 +86,55 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> Dict[str,
     return metrics
     
 class RaySPPOTrainer(RayPPOTrainer):
-    # def __init__(self,
-    #              config,
-    #              tokenizer,
-    #              role_worker_mapping: dict,
-    #              resource_pool_manager,
-    #              ray_worker_group_cls=None,
-    #              processor=None,
-    #              reward_fn=None,
-    #              val_reward_fn=None):
-    #     from verl.workers.actor import DataParallelPPOActor
-    #     from dp_actor import update_policy
+    def __init__(self,
+                 config,
+                 tokenizer,
+                 role_worker_mapping: dict[Role, WorkerType],
+                 resource_pool_manager: ResourcePoolManager,
+                 ray_worker_group_cls: RayWorkerGroup = RayWorkerGroup,
+                 processor=None,
+                 reward_fn=None,
+                 val_reward_fn=None):
 
-    #     print("🧩 Before patch:", DataParallelPPOActor.update_policy)
+        # assert torch.cuda.is_available(), 'cuda must be available on driver'
 
-    #     # ✅ Monkey patch
-    #     DataParallelPPOActor.update_policy = update_policy
+        self.tokenizer = tokenizer
+        self.processor = processor
+        self.config = config
+        self.reward_fn = reward_fn
+        self.val_reward_fn = val_reward_fn
 
-    #     print("✅ Patched DataParallelPPOActor.update_policy!")
-    #     print("🧩 After patch:", DataParallelPPOActor.update_policy)
-    #     print("==============================================")
+        self.hybrid_engine = config.actor_rollout_ref.hybrid_engine
+        assert self.hybrid_engine, 'Currently, only support hybrid engine'
 
-    #     # 👇 Now call the parent constructor
-    #     super().__init__(config=config,
-    #                      tokenizer=tokenizer,
-    #                      role_worker_mapping=role_worker_mapping,
-    #                      resource_pool_manager=resource_pool_manager,
-    #                      ray_worker_group_cls=ray_worker_group_cls,
-    #                      processor=processor,
-    #                      reward_fn=reward_fn,
-    #                      val_reward_fn=val_reward_fn)
+        if self.hybrid_engine:
+            assert Role.ActorRollout in role_worker_mapping, f'{role_worker_mapping.keys()=}'
+
+        self.role_worker_mapping = role_worker_mapping
+        self.resource_pool_manager = resource_pool_manager
+        self.use_reference_policy = Role.RefPolicy in role_worker_mapping
+        self.use_rm = Role.RewardModel in role_worker_mapping
+        self.ray_worker_group_cls = ray_worker_group_cls
+        self.validation_generations_logger = ValidationGenerationsLogger()
+
+        # define in-reward KL control
+        # kl loss control currently not suppoorted
+        if config.algorithm.use_kl_in_reward:
+            self.kl_ctrl_in_reward = core_algos.get_kl_controller(config.algorithm.kl_ctrl)
+
+        if self.config.algorithm.adv_estimator == AdvantageEstimator.GAE:
+            self.use_critic = True
+        elif self.config.algorithm.adv_estimator in [
+                AdvantageEstimator.GRPO, AdvantageEstimator.REINFORCE_PLUS_PLUS, AdvantageEstimator.REMAX,
+                AdvantageEstimator.RLOO, AdvantageEstimator.REINFORCE_PLUS_PLUS_BASELINE
+        ]:
+            self.use_critic = False
+        else:
+            self.use_critic = False
+            # raise NotImplementedError
+
+        self._validate_config()
+        self._create_dataloader()
         
     def fit(self):
         """
@@ -275,7 +294,6 @@ class RaySPPOTrainer(RayPPOTrainer):
                         (is_last_step or  self.global_steps % self.config.trainer.test_freq == 0):
                         with _timer('testing', timing_raw):
                             val_metrics: dict = self._validate()
-                            print(f"========================================={val_metrics}==============================================")
                             if is_last_step:
                                 last_val_metrics = val_metrics
                         metrics.update(val_metrics)

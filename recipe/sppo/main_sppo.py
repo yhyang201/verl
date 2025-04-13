@@ -14,6 +14,7 @@
 """
 Note that we don't combine the main with ray_trainer as ray_trainer is used by other main.
 """
+        
 from .sppo_ray_trainer import RaySPPOTrainer
 
 import os
@@ -51,10 +52,10 @@ def get_custom_reward_fn(config):
 
 @hydra.main(config_path='config', config_name='sppo_trainer', version_base=None)
 def main(config):
-    run_ppo(config)
+    run_sppo(config)
 
 
-def run_ppo(config) -> None:
+def run_sppo(config) -> None:
     # TODO(linjunrong.ocss884): this ENV is left for resolving SGLang conflict with ray devices
     # isolation, will solve in the future
     os.environ["ENSURE_CUDA_VISIBLE_DEVICES"] = os.environ.get('CUDA_VISIBLE_DEVICES', '')
@@ -95,15 +96,12 @@ class TaskRunner:
         # define worker classes
         if config.actor_rollout_ref.actor.strategy == 'fsdp':
             # assert config.actor_rollout_ref.actor.strategy == config.critic.strategy
-            from verl.workers.fsdp_workers import ActorRolloutRefWorker #, CriticWorker
+            from .sppo_worker import ActorRolloutRefWorker #, CriticWorker
             from verl.single_controller.ray import RayWorkerGroup
             ray_worker_group_cls = RayWorkerGroup
 
         elif config.actor_rollout_ref.actor.strategy == 'megatron':
-            assert config.actor_rollout_ref.actor.strategy == config.critic.strategy
-            from verl.workers.megatron_workers import ActorRolloutRefWorker #, CriticWorker
-            from verl.single_controller.ray.megatron import NVMegatronRayWorkerGroup
-            ray_worker_group_cls = NVMegatronRayWorkerGroup
+            raise NotImplementedError
 
         else:
             raise NotImplementedError
@@ -134,7 +132,7 @@ class TaskRunner:
             if config.reward_model.strategy == 'fsdp':
                 from verl.workers.fsdp_workers import RewardModelWorker
             elif config.reward_model.strategy == 'megatron':
-                from verl.workers.megatron_workers import RewardModelWorker
+                raise NotImplementedError
             else:
                 raise NotImplementedError
             role_worker_mapping[Role.RewardModel] = ray.remote(RewardModelWorker)

@@ -288,8 +288,7 @@ class RayPPOTrainer(object):
         ]:
             self.use_critic = False
         else:
-            self.use_critic = False
-            # raise NotImplementedError
+            raise NotImplementedError
 
         self._validate_config()
         self._create_dataloader()

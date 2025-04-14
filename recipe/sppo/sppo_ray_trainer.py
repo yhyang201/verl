@@ -217,8 +217,6 @@ class RaySPPOTrainer(RayPPOTrainer):
                     if self.config.trainer.critic_warmup <= self.global_steps:
                         # update actor
                         with _timer('update_actor', timing_raw):
-                            print("\033[33m" + f"{self.actor_rollout_wg}" + "\033[0m")
-                            print("\033[33m" + f"{self.actor_rollout_wg.update_actor}" + "\033[0m")
                             actor_output = self.actor_rollout_wg.update_actor(batch)
                         actor_output_metrics = reduce_metrics(actor_output.meta_info['metrics'])
                         metrics.update(actor_output_metrics)

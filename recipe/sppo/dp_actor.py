@@ -150,6 +150,5 @@ class DataParallelSPPOActor(DataParallelPPOActor):
                 grad_norm = self._optimizer_step()
                 data = {'actor/grad_norm': grad_norm.detach().item()}
             append_to_dict(metrics, data)
-        print("\033[31mEnd\033[0m")
         self.actor_optimizer.zero_grad()
         return metrics

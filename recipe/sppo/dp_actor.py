@@ -14,10 +14,10 @@ from verl.workers.actor.dp_actor import DataParallelPPOActor
 def compute_sppo_loss(
     old_log_prob: torch.Tensor,      # (bs, seq_len)
     log_prob: torch.Tensor,          # (bs, seq_len)
-    rewards: torch.Tensor,        # (bs,)
+    rewards: torch.Tensor,           # (bs,)
     response_mask: torch.Tensor,     # (bs, seq_len)
     eta: float = 1.0,
-    loss_agg_mode: str = "seq-mean-token-sum"
+    loss_agg_mode: str = "token-mean"
 ):
     """
     SPPO Loss computation.
@@ -31,18 +31,17 @@ def compute_sppo_loss(
     scaled_rewards = eta * (rewards - 0.5)
     loss_vec = (log_ratios - scaled_rewards) ** 2  # (bs,)
     
-
-    if loss_agg_mode == "seq-mean-token-sum":
-        loss = loss_vec.mean()
-    elif loss_agg_mode == "seq-mean-token-mean":
-        seq_lengths = response_mask.sum(dim=1)  # (bs,)
-        token_mean_loss = loss_vec / seq_lengths.clamp(min=1)
-        loss = token_mean_loss.mean()
-    elif loss_agg_mode == "token-mean":
+    if loss_agg_mode == "token-mean":
         sample_mask = response_mask.any(dim=1).float()  # (bs,)
-        loss = verl_F.masked_mean(loss_vec, sample_mask)       
-    else:
-        raise ValueError(f"Unsupported loss_agg_mode: {loss_agg_mode}")
+        loss = verl_F.masked_mean(loss_vec, sample_mask) 
+    # elif loss_agg_mode == "seq-mean-token-sum":
+    #     loss = loss_vec.mean()
+    # elif loss_agg_mode == "seq-mean-token-mean":
+    #     seq_lengths = response_mask.sum(dim=1)  # (bs,)
+    #     token_mean_loss = loss_vec / seq_lengths.clamp(min=1)
+    #     loss = token_mean_loss.mean()      
+    # else:
+    #     raise ValueError(f"Unsupported loss_agg_mode: {loss_agg_mode}")
 
     return loss, log_ratios, scaled_rewards 
 

@@ -31,7 +31,7 @@ python3 -m recipe.sppo.main_sppo \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.model.use_remove_padding=True \
     actor_rollout_ref.actor.optim.lr_warmup_steps_ratio=0.1 \
-    actor_rollout_ref.actor.ppo_mini_batch_size=128 \
+    actor_rollout_ref.actor.ppo_mini_batch_size=256 \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=16 \
     actor_rollout_ref.actor.use_kl_loss=False \
     actor_rollout_ref.model.enable_gradient_checkpointing=True \
@@ -43,7 +43,7 @@ python3 -m recipe.sppo.main_sppo \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.6 \
     algorithm.use_kl_in_reward=False \
     trainer.critic_warmup=0 \
-    trainer.logger=['console'] \
+    trainer.logger=['console','wandb'] \
     trainer.project_name='verl_sppo' \
     trainer.val_before_train=True \
     trainer.val_only=False \

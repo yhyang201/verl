@@ -28,7 +28,7 @@ def compute_sppo_loss(
     
     log_ratios = log_prob_sum - old_log_prob_sum  # (bs,)
 
-    scaled_rewards = eta * (rewards - 0.5)
+    scaled_rewards = eta * (rewards)
     loss_vec = (log_ratios - scaled_rewards) ** 2  # (bs,)
     
     if loss_agg_mode == "token-mean":

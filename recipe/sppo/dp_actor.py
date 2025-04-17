@@ -25,7 +25,6 @@ def compute_sppo_loss(
     # Compute log-ratios over masked tokens
     log_prob_sum = (log_prob * response_mask).sum(dim=1)  # (bs,)
     old_log_prob_sum = (old_log_prob * response_mask).sum(dim=1)  # (bs,)
-    
     log_ratios = log_prob_sum - old_log_prob_sum  # (bs,)
 
     scaled_rewards = eta * (rewards)
@@ -97,19 +96,20 @@ class DataParallelSPPOActor(DataParallelPPOActor):
                     attention_mask = data['attention_mask']
                     response_mask = attention_mask[:, -response_length:]
                     old_log_prob = data['old_log_probs']
-                    rewards = data['token_level_rewards']      
+                    rewards = data['seq_level_rewards']      
                             
                     entropy_coeff = self.config.entropy_coeff
                     loss_agg_mode = self.config.loss_agg_mode
+                    eta = self.config.get('sppo_eta', 1.0)
 
                     # all return: (bsz, response_length)
                     entropy, log_prob = self._forward_micro_batch(micro_batch=data, temperature=temperature)
                     pg_loss, log_ratios, preference = compute_sppo_loss(
                         old_log_prob=old_log_prob,
                         log_prob=log_prob,
-                        rewards=rewards.sum(axis=-1),
+                        rewards=rewards,
                         response_mask=response_mask,
-                        eta=self.config.get('sppo_eta', 1.0),
+                        eta=eta,
                         loss_agg_mode=loss_agg_mode,
                     )
                     # compute entropy loss from entropy

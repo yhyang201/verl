@@ -26,6 +26,38 @@ from verl.trainer.ppo.metric_utils import compute_data_metrics, compute_througho
 from verl.trainer.ppo.ray_trainer import RayPPOTrainer, Role, WorkerType, ResourcePoolManager, _timer, apply_kl_penalty, compute_response_mask
 from verl.utils.tracking import ValidationGenerationsLogger
 
+
+
+def softmean(x: torch.Tensor,
+             beta: float,
+             dim: int = -1,
+             keepdim: bool = False) -> torch.Tensor:
+    """
+    Compute SoftMean_β(x) = (1/β) * log( (1/n) * Σ exp(β * x_i) )
+    Falls back to arithmetic mean when β=0.
+    """
+    if beta == 0.0:
+        return x.mean(dim=dim, keepdim=keepdim)
+
+    # cast beta to tensor on same device/dtype
+    beta_t = x.new_tensor(beta)
+    # numerically-stable logsumexp(β x)
+    lse = torch.logsumexp(x * beta_t, dim=dim, keepdim=keepdim)
+    n = x.size(dim)
+    log_n = x.new_tensor(n).log()
+
+    return (lse - log_n) / beta_t
+
+
+def compute_advantage(data: DataProto, 
+                      beta=1.0):
+    rewards = data.batch['token_level_rewards'].sum(axis=-1) # (bs, )
+    s_mean = softmean(rewards, beta, keepdim=True)           # (bs, )
+    rewards = rewards - s_mean                               # (bs, )
+    data.batch['seq_level_rewards'] = rewards              # (bs, )
+    return data
+    
+
 class RaySPPOTrainer(RayPPOTrainer):
     def __init__(self,
                  config,
@@ -205,6 +237,9 @@ class RaySPPOTrainer(RayPPOTrainer):
                         #                           gamma=self.config.algorithm.gamma,
                         #                           lam=self.config.algorithm.lam,
                         #                           num_repeat=self.config.actor_rollout_ref.rollout.n)
+                        beta = self.config.algorithm.sppo_eta
+                        batch = compute_advantage(batch,
+                                                  beta=beta)
 
                     # update critic
                     # if self.use_critic:

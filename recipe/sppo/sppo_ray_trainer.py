@@ -230,6 +230,7 @@ class RaySPPOTrainer(RayPPOTrainer):
                             metrics.update(kl_metrics)
                         else:
                             batch.batch['token_level_rewards'] = batch.batch['token_level_scores']
+                            batch.batch['seq_level_rewards'] = batch.batch['token_level_scores']
 
                         # compute advantages, executed on the driver process
                         # batch = compute_advantage(batch,

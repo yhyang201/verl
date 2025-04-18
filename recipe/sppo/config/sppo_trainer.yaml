@@ -25,7 +25,7 @@ actor_rollout_ref:
     enable_gradient_checkpointing: True
     use_remove_padding: False
   actor:
-    sppo_eta: 50.0
+    sppo_eta: 1.0
     strategy: fsdp  # This is for backward-compatibility
     ppo_mini_batch_size: 256
     ppo_micro_batch_size: null # will be deprecated, use ppo_micro_batch_size_per_gpu
@@ -188,7 +188,7 @@ algorithm:
     kl_coef: 0.001
     horizon: 10000
     target_kl: 0.1
-  sppo_eta: 50.0
+  sppo_eta: 1.0
 
 trainer:
   balance_batch: True

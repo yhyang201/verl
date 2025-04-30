@@ -106,7 +106,7 @@ class TaskRunner:
         if config.actor_rollout_ref.actor.strategy == "fsdp":
             assert config.actor_rollout_ref.actor.strategy == config.critic.strategy
             from verl.single_controller.ray import RayWorkerGroup
-            from .sppo_worker import SPPOActorRolloutRefWorker, CriticWorker
+            from .sppo_worker import SPPOActorRolloutRefWorker # , CriticWorker
 
             actor_rollout_cls = SPPOActorRolloutRefWorker
             ray_worker_group_cls = RayWorkerGroup
@@ -126,7 +126,7 @@ class TaskRunner:
 
         role_worker_mapping = {
             Role.ActorRollout: ray.remote(actor_rollout_cls),
-            Role.Critic: ray.remote(CriticWorker),
+            # Role.Critic: ray.remote(CriticWorker),
         }
 
         global_pool_id = "global_pool"
@@ -135,7 +135,7 @@ class TaskRunner:
         }
         mapping = {
             Role.ActorRollout: global_pool_id,
-            Role.Critic: global_pool_id,
+            # Role.Critic: global_pool_id,
         }
 
         # we should adopt a multi-source reward function here

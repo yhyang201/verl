@@ -1,17 +1,22 @@
+import logging
+import os
+
+
 import torch
-
-
-from verl import DataProto
-from verl.trainer.ppo.core_algos import compute_policy_loss, kl_penalty, agg_loss
-from verl.utils.py_functional import append_to_dict
-
-from verl.utils.seqlen_balancing import rearrange_micro_batches, get_reverse_idx
-
-from verl.utils.debug import GPUMemoryLogger
+from torch import nn
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
 import verl.utils.torch_functional as verl_F
+from verl import DataProto
+from verl.trainer.ppo.core_algos import agg_loss, kl_penalty
+from verl.utils.debug import GPUMemoryLogger
+from verl.utils.py_functional import append_to_dict
+from verl.utils.seqlen_balancing import rearrange_micro_batches
 
 from verl.workers.actor.dp_actor import DataParallelPPOActor
+
+logger = logging.getLogger(__file__)
+logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "WARN"))
 
 def compute_sppo_loss(
     old_log_prob: torch.Tensor,      # (bs, seq_len)
@@ -47,7 +52,7 @@ class DataParallelSPPOActor(DataParallelPPOActor):
         temperature = data.meta_info["temperature"]  # temperature must be in the data.meta_info to avoid slient error
         multi_turn = data.meta_info.get("multi_turn", False)
 
-        select_keys = ["responses", "input_ids", "attention_mask", "position_ids", "old_log_probs", "advantages"]
+        select_keys = ["responses", "input_ids", "attention_mask", "position_ids", "old_log_probs", "seq_level_rewards"]
         if multi_turn:
             select_keys.append("loss_mask")
         if self.config.use_kl_loss:
@@ -149,8 +154,7 @@ class DataParallelSPPOActor(DataParallelPPOActor):
                     loss.backward()
 
                     data = {
-                        'actor/entropy': entropy_loss.detach().item(),
-                        'actor/pg_loss': pg_loss.detach().item(),
+                        'actor/loss': loss.detach().item(),
                         'actor/log_ratio_mean': log_ratios.mean().detach().item(),
                         'actor/preference_mean': preference.mean().detach().item(),
                     }

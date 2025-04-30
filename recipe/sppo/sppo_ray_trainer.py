@@ -328,11 +328,11 @@ class RaySPPOTrainer(RayPPOTrainer):
                 }
             )
             # collect metrics
-            metrics.update(compute_data_metrics(batch=batch, use_critic=self.use_critic))
-            metrics.update(compute_timing_metrics(batch=batch, timing_raw=timing_raw))
+            # metrics.update(compute_data_metrics(batch=batch, use_critic=self.use_critic))
+            # metrics.update(compute_timing_metrics(batch=batch, timing_raw=timing_raw))
             # TODO: implement actual tflpo and theoretical tflpo
             n_gpus = self.resource_pool_manager.get_n_gpus()
-            metrics.update(compute_throughout_metrics(batch=batch, timing_raw=timing_raw, n_gpus=n_gpus))
+            # metrics.update(compute_throughout_metrics(batch=batch, timing_raw=timing_raw, n_gpus=n_gpus))
 
             # TODO: make a canonical logger that supports various backend
             logger.log(data=metrics, step=self.global_steps)

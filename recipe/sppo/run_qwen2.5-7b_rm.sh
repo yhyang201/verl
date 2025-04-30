@@ -46,7 +46,6 @@ python3 -m recipe.sppo.main_sppo \
     trainer.logger=['console','wandb'] \
     trainer.project_name='verl_sppo' \
     trainer.val_before_train=True \
-    trainer.val_only=False \
     trainer.experiment_name='Qwen2-7B-Instruct_hybrid_rm' \
     trainer.n_gpus_per_node=4 \
     trainer.nnodes=1 \

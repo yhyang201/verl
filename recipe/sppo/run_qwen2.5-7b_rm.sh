@@ -44,7 +44,7 @@ python3 -m recipe.sppo.main_sppo \
     algorithm.use_kl_in_reward=False \
     trainer.critic_warmup=0 \
     trainer.logger=['console','wandb'] \
-    trainer.project_name='verl_sppo' \
+    trainer.project_name='sppo-sglang' \
     trainer.val_before_train=True \
     trainer.experiment_name='Qwen2-7B-Instruct_hybrid_rm' \
     trainer.n_gpus_per_node=4 \

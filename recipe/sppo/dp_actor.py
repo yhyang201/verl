@@ -1,10 +1,7 @@
 import logging
 import os
 
-
 import torch
-from torch import nn
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
 import verl.utils.torch_functional as verl_F
 from verl import DataProto
@@ -12,19 +9,19 @@ from verl.trainer.ppo.core_algos import agg_loss, kl_penalty
 from verl.utils.debug import GPUMemoryLogger
 from verl.utils.py_functional import append_to_dict
 from verl.utils.seqlen_balancing import rearrange_micro_batches
-
 from verl.workers.actor.dp_actor import DataParallelPPOActor
 
 logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "WARN"))
 
+
 def compute_sppo_loss(
-    old_log_prob: torch.Tensor,      # (bs, seq_len)
-    log_prob: torch.Tensor,          # (bs, seq_len)
-    rewards: torch.Tensor,           # (bs,)
-    response_mask: torch.Tensor,     # (bs, seq_len)
+    old_log_prob: torch.Tensor,  # (bs, seq_len)
+    log_prob: torch.Tensor,  # (bs, seq_len)
+    rewards: torch.Tensor,  # (bs,)
+    response_mask: torch.Tensor,  # (bs, seq_len)
     eta: float = 1.0,
-    loss_agg_mode: str = "token-mean"
+    loss_agg_mode: str = "token-mean",
 ):
     """
     SPPO Loss computation.
@@ -36,12 +33,13 @@ def compute_sppo_loss(
 
     scaled_rewards = eta * (rewards)
     loss_vec = (log_ratios - scaled_rewards) ** 2  # (bs,)
-    
+
     if loss_agg_mode == "token-mean":
         sample_mask = response_mask.any(dim=1).float()  # (bs,)
-        loss = verl_F.masked_mean(loss_vec, sample_mask) 
+        loss = verl_F.masked_mean(loss_vec, sample_mask)
 
-    return loss, log_ratios, scaled_rewards 
+    return loss, log_ratios, scaled_rewards
+
 
 class DataParallelSPPOActor(DataParallelPPOActor):
     @GPUMemoryLogger(role="dp actor", logger=logger)
@@ -103,15 +101,11 @@ class DataParallelSPPOActor(DataParallelPPOActor):
                         response_mask = attention_mask[:, -response_length:]
 
                     old_log_prob = data["old_log_probs"]
-                    rewards = data['seq_level_rewards']      
+                    rewards = data["seq_level_rewards"]
 
-                    clip_ratio = self.config.clip_ratio
-                    clip_ratio_low = self.config.clip_ratio_low if self.config.clip_ratio_low is not None else clip_ratio
-                    clip_ratio_high = self.config.clip_ratio_high if self.config.clip_ratio_high is not None else clip_ratio
-                    clip_ratio_c = self.config.get("clip_ratio_c", 3.0)
                     entropy_coeff = self.config.entropy_coeff
                     loss_agg_mode = self.config.loss_agg_mode
-                    eta = self.config.get('sppo_eta', 1.0)
+                    eta = self.config.get("sppo_eta", 1.0)
 
                     # all return: (bsz, response_length)
                     calculate_entropy = False
@@ -154,9 +148,9 @@ class DataParallelSPPOActor(DataParallelPPOActor):
                     loss.backward()
 
                     data = {
-                        'actor/loss': loss.detach().item(),
-                        'actor/log_ratio_mean': log_ratios.mean().detach().item(),
-                        'actor/preference_mean': preference.mean().detach().item(),
+                        "actor/loss": loss.detach().item(),
+                        "actor/log_ratio_mean": log_ratios.mean().detach().item(),
+                        "actor/preference_mean": preference.mean().detach().item(),
                     }
                     append_to_dict(metrics, data)
 

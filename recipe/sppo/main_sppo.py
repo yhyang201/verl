@@ -20,8 +20,9 @@ import os
 import hydra
 import ray
 
-from .sppo_ray_trainer import RaySPPOTrainer
 from verl.trainer.ppo.reward import load_reward_manager
+
+from .sppo_ray_trainer import RaySPPOTrainer
 
 
 def get_custom_reward_fn(config):
@@ -59,7 +60,7 @@ def get_custom_reward_fn(config):
     return wrapped_fn
 
 
-@hydra.main(config_path='config', config_name='sppo_trainer', version_base=None)
+@hydra.main(config_path="config", config_name="sppo_trainer", version_base=None)
 def main(config):
     run_ppo(config)
 
@@ -106,7 +107,8 @@ class TaskRunner:
         if config.actor_rollout_ref.actor.strategy == "fsdp":
             assert config.actor_rollout_ref.actor.strategy == config.critic.strategy
             from verl.single_controller.ray import RayWorkerGroup
-            from .sppo_worker import SPPOActorRolloutRefWorker # , CriticWorker
+
+            from .sppo_worker import SPPOActorRolloutRefWorker  # , CriticWorker
 
             actor_rollout_cls = SPPOActorRolloutRefWorker
             ray_worker_group_cls = RayWorkerGroup
@@ -114,7 +116,7 @@ class TaskRunner:
         elif config.actor_rollout_ref.actor.strategy == "megatron":
             assert config.actor_rollout_ref.actor.strategy == config.critic.strategy
             from verl.single_controller.ray.megatron import NVMegatronRayWorkerGroup
-            from verl.workers.megatron_workers import ActorRolloutRefWorker, CriticWorker
+            from verl.workers.megatron_workers import ActorRolloutRefWorker
 
             actor_rollout_cls = ActorRolloutRefWorker
             ray_worker_group_cls = NVMegatronRayWorkerGroup

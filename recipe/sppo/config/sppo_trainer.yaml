@@ -83,16 +83,16 @@ actor_rollout_ref:
     log_prob_max_token_len_per_gpu: ${actor_rollout_ref.actor.ppo_max_token_len_per_gpu}
     ulysses_sequence_parallel_size: ${actor_rollout_ref.actor.ulysses_sequence_parallel_size} # sp size
   rollout:
-    name: vllm
+    name: sglang
     mode: sync # sync: LLM, async: AsyncLLM
     chat_scheduler: null # async chat scheduler, e.g examples.ppo_trainer.naive_chat_scheduler.NaiveChatCompletionScheduler
     temperature: 1.0
-    top_k: -1 # 0 for hf rollout, -1 for vllm rollout
+    top_k: -1 # 0 for hf rollout, -1 for sglang rollout
     top_p: 1
     use_fire_sampling: False # https://arxiv.org/abs/2410.21236
     prompt_length: ${data.max_prompt_length}  # not use for opensource
     response_length: ${data.max_response_length}
-    # for vllm rollout
+    # for sglang rollout
     dtype: bfloat16 # should align with FSDP
     gpu_memory_utilization: 0.5
     ignore_eos: False
@@ -117,7 +117,7 @@ actor_rollout_ref:
       swap_space: null # null means "use the engine default value" (usually 4 GB), setting it to, e.g., 32 means 32 GB
     val_kwargs:
       # sampling parameters for validation
-      top_k: -1 # 0 for hf rollout, -1 for vllm rollout
+      top_k: -1 # 0 for hf rollout, -1 for sglang rollout
       top_p: 1.0
       temperature: 0
       n: 1

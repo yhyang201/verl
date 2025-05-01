@@ -3,38 +3,26 @@ FSDP PPO Trainer with Ray-based single controller.
 This trainer supports model-agonistic model initialization with huggingface
 """
 
-import os
 import uuid
-import torch
-
-
-import ray
-from contextlib import contextmanager
-from dataclasses import dataclass, field
-from enum import Enum
-from pprint import pprint
-from typing import Type, Dict
 from copy import deepcopy
-from collections import defaultdict
-from functools import partial
-from tqdm import tqdm
+from pprint import pprint
 
 import numpy as np
+import ray
+import torch
+from tqdm import tqdm
+
 from verl import DataProto
 from verl.single_controller.ray import RayWorkerGroup
 from verl.trainer.ppo import core_algos
 from verl.trainer.ppo.core_algos import agg_loss
+from verl.trainer.ppo.metric_utils import reduce_metrics
+from verl.trainer.ppo.ray_trainer import AdvantageEstimator, RayPPOTrainer, ResourcePoolManager, Role, WorkerType, _timer, apply_kl_penalty, compute_response_mask
 from verl.trainer.ppo.reward import compute_reward, compute_reward_async
-from verl.trainer.ppo.metric_utils import compute_data_metrics, compute_throughout_metrics, compute_timing_metrics, reduce_metrics
-from verl.trainer.ppo.ray_trainer import RayPPOTrainer, Role, WorkerType, ResourcePoolManager, _timer, apply_kl_penalty, compute_response_mask, AdvantageEstimator
 from verl.utils.tracking import ValidationGenerationsLogger
 
 
-
-def softmean(x: torch.Tensor,
-             beta: float,
-             dim: int = -1,
-             keepdim: bool = False) -> torch.Tensor:
+def softmean(x: torch.Tensor, beta: float, dim: int = -1, keepdim: bool = False) -> torch.Tensor:
     """
     Compute SoftMean_β(x) = (1/β) * log( (1/n) * Σ exp(β * x_i) )
     Falls back to arithmetic mean when β=0.
@@ -52,14 +40,13 @@ def softmean(x: torch.Tensor,
     return (lse - log_n) / beta_t
 
 
-def compute_advantage(data: DataProto, 
-                      beta=1.0):
-    rewards = data.batch['token_level_rewards'].sum(axis=-1) # (bs, )
-    s_mean = softmean(rewards, beta, keepdim=True)           # (bs, )
-    rewards = rewards - s_mean                               # (bs, )
-    data.batch['seq_level_rewards'] = rewards              # (bs, )
+def compute_advantage(data: DataProto, beta=1.0):
+    rewards = data.batch["token_level_rewards"].sum(axis=-1)  # (bs, )
+    s_mean = softmean(rewards, beta, keepdim=True)  # (bs, )
+    rewards = rewards - s_mean  # (bs, )
+    data.batch["seq_level_rewards"] = rewards  # (bs, )
     return data
-    
+
 
 class RaySPPOTrainer(RayPPOTrainer):
     """
@@ -79,8 +66,6 @@ class RaySPPOTrainer(RayPPOTrainer):
         reward_fn=None,
         val_reward_fn=None,
     ):
-        # assert torch.cuda.is_available(), 'cuda must be available on driver'
-
         self.tokenizer = tokenizer
         self.processor = processor
         self.config = config
@@ -105,7 +90,6 @@ class RaySPPOTrainer(RayPPOTrainer):
         if config.algorithm.use_kl_in_reward:
             self.kl_ctrl_in_reward = core_algos.get_kl_controller(config.algorithm.kl_ctrl)
 
-
         self.use_critic = False
 
         self._validate_config()
@@ -114,8 +98,8 @@ class RaySPPOTrainer(RayPPOTrainer):
     def fit(self):
         """
         The training loop of PPO.
-        The driver process only need to call the compute functions of the worker group through RPC
-        to construct the PPO dataflow.
+        The driver process only need to call the compute functions of the
+        worker group through RPC to construct the PPO dataflow.
         The light-weight advantage computation is done on the driver process.
         """
         from omegaconf import OmegaConf
@@ -212,7 +196,7 @@ class RaySPPOTrainer(RayPPOTrainer):
 
                     # compute global_valid tokens
                     batch.meta_info["global_token_num"] = torch.sum(batch.batch["attention_mask"], dim=-1).tolist()
-                    
+
                 with _timer("reward", timing_raw):
                     # compute reward model score
                     if self.use_rm:
@@ -265,16 +249,10 @@ class RaySPPOTrainer(RayPPOTrainer):
                         metrics.update(kl_metrics)
                     else:
                         batch.batch["token_level_rewards"] = batch.batch["token_level_scores"]
-                        batch.batch['seq_level_rewards'] = batch.batch['token_level_scores']
-
-                    # compute advantages, executed on the driver process
-
-                    norm_adv_by_std_in_grpo = self.config.algorithm.get("norm_adv_by_std_in_grpo", True)  # GRPO adv normalization factor
+                        batch.batch["seq_level_rewards"] = batch.batch["token_level_scores"]
 
                     beta = self.config.algorithm.sppo_eta
-                    batch = compute_advantage(batch,
-                                                beta=beta)
-
+                    batch = compute_advantage(batch, beta=beta)
 
                 # update critic
                 if self.use_critic:
@@ -327,12 +305,6 @@ class RaySPPOTrainer(RayPPOTrainer):
                     "training/epoch": epoch,
                 }
             )
-            # collect metrics
-            # metrics.update(compute_data_metrics(batch=batch, use_critic=self.use_critic))
-            # metrics.update(compute_timing_metrics(batch=batch, timing_raw=timing_raw))
-            # TODO: implement actual tflpo and theoretical tflpo
-            n_gpus = self.resource_pool_manager.get_n_gpus()
-            # metrics.update(compute_throughout_metrics(batch=batch, timing_raw=timing_raw, n_gpus=n_gpus))
 
             # TODO: make a canonical logger that supports various backend
             logger.log(data=metrics, step=self.global_steps)

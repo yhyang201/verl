@@ -1,35 +1,19 @@
 import logging
 import os
-import warnings
-import psutil
 
-import torch
-import torch.distributed
-from torch.distributed.device_mesh import init_device_mesh
-import verl.utils.torch_functional as verl_F
-from omegaconf import DictConfig, open_dict
-from verl import DataProto
-from verl.single_controller.base import Worker
-from verl.single_controller.base.decorator import register, Dispatch
-from verl.utils import hf_tokenizer, hf_processor
-from verl.utils.debug import log_gpu_memory_usage
-from verl.utils.fs import copy_to_local
-from verl.utils.fsdp_utils import get_fsdp_wrap_policy, init_fn, get_init_weight_context_manager
-from verl.utils.fsdp_utils import offload_fsdp_optimizer, offload_fsdp_model_to_cpu, load_fsdp_optimizer, \
-    load_fsdp_model_to_gpu
-from verl.utils.import_utils import import_external_libs
-from verl.utils.model import compute_position_id_with_mask
-from verl.utils.flops_counter import FlopsCounter
+from omegaconf import open_dict
+
+from verl.single_controller.base.decorator import Dispatch, register
 from verl.utils.checkpoint.fsdp_checkpoint_manager import FSDPCheckpointManager
-from verl.workers.sharding_manager.fsdp_ulysses import FSDPUlyssesShardingManager
-from verl.workers.fsdp_workers import create_device_mesh, get_sharding_strategy
+from verl.utils.debug import log_gpu_memory_usage
+from verl.utils.flops_counter import FlopsCounter
+from verl.utils.fsdp_utils import offload_fsdp_model_to_cpu, offload_fsdp_optimizer
+from verl.utils.import_utils import import_external_libs
 from verl.workers.fsdp_workers import ActorRolloutRefWorker
 
-from codetiming import Timer
-
-
 logger = logging.getLogger(__file__)
-logger.setLevel(os.getenv('VERL_PPO_LOGGING_LEVEL', 'WARN'))
+logger.setLevel(os.getenv("VERL_PPO_LOGGING_LEVEL", "WARN"))
+
 
 class SPPOActorRolloutRefWorker(ActorRolloutRefWorker):
     """

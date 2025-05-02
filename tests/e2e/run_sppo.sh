@@ -37,10 +37,8 @@ python3 -m recipe.sppo.main_sppo \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.6 \
     algorithm.use_kl_in_reward=False \
     trainer.critic_warmup=0 \
-    trainer.logger=['console','wandb'] \
-    trainer.project_name='sppo-sglang' \
+    trainer.logger=['console'] \
     trainer.val_before_train=True \
-    trainer.experiment_name='Qwen2.5-0.5B-Instruct-sppo-minimal' \
     trainer.n_gpus_per_node=8 \
     trainer.nnodes=1 \
     trainer.save_freq=-1 \

@@ -1,22 +1,16 @@
-# Discliamer: the model used in the script is only for academic purpose.
-set -x
+#!/usr/bin/env bash
+set -xeuo pipefail
 
-# Data preparation scripts are available in ``examples/data_preprocess``.
-# Example usage:
-#
-#   python3 examples/data_preprocess/math_dataset.py --local_dir ~/data/math
-#   python3 examples/data_preprocess/gsm8k.py --local_dir ~/data/gsm8k
+# in e2e_sppo.yml, we set NUM_GPUS=8 L20
 
-gsm8k_train_path=$HOME/data/math/train.parquet
-gsm8k_test_path=$HOME/data/math/test.parquet
+NUM_GPUS=${NUM_GPUS:-8}
 
+gsm8k_train_path=./data/math/train.parquet
+gsm8k_test_path=./data/math/test.parquet
 train_files="['$gsm8k_train_path']"
 test_files="['$gsm8k_test_path']"
 
-# prepare model ckpt
-huggingface-cli download Qwen/Qwen2.5-7B-Instruct --local-dir $HOME/models/Qwen2.5-7B-Instruct &
-# huggingface-cli download sfairXC/FsfairX-LLaMA3-RM-v0.1 --local-dir $HOME/models/FsfairX-LLaMA3-RM-v0.1 &
-wait
+exp_name="Qwen2.5-0.5B-Instruct-sppo-minimal"
 
 python3 -m recipe.sppo.main_sppo \
     data.train_files="$train_files" \
@@ -27,7 +21,7 @@ python3 -m recipe.sppo.main_sppo \
     data.filter_overlong_prompts=True \
     data.truncation='error' \
     data.return_raw_chat=True \
-    actor_rollout_ref.model.path="$HOME/models/Qwen2.5-7B-Instruct" \
+    actor_rollout_ref.model.path="./models/Qwen2.5-0.5B-Instruct" \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.model.use_remove_padding=True \
     actor_rollout_ref.actor.optim.lr_warmup_steps_ratio=0.1 \
@@ -43,12 +37,9 @@ python3 -m recipe.sppo.main_sppo \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.6 \
     algorithm.use_kl_in_reward=False \
     trainer.critic_warmup=0 \
-    trainer.logger=['console','wandb'] \
-    trainer.project_name='sppo-sglang' \
+    trainer.logger=['console'] \
     trainer.val_before_train=True \
-    trainer.experiment_name='Qwen2-7B-Instruct_hybrid_rm' \
-    trainer.n_gpus_per_node=4 \
+    trainer.n_gpus_per_node=8 \
     trainer.nnodes=1 \
     trainer.save_freq=-1 \
-    trainer.test_freq=1 \
-    trainer.total_epochs=15 $@
+    trainer.total_epochs=2 $@

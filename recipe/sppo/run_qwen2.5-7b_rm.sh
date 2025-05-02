@@ -14,7 +14,7 @@ train_files="['$gsm8k_train_path']"
 test_files="['$gsm8k_test_path']"
 
 # prepare model ckpt
-huggingface-cli download Qwen/Qwen2.5-0.5B-Instruct --local-dir $HOME/models/Qwen2.5-0.5B-Instruct &
+huggingface-cli download Qwen/Qwen2.5-7B-Instruct --local-dir $HOME/models/Qwen2.5-7B-Instruct &
 # huggingface-cli download sfairXC/FsfairX-LLaMA3-RM-v0.1 --local-dir $HOME/models/FsfairX-LLaMA3-RM-v0.1 &
 wait
 
@@ -27,7 +27,7 @@ python3 -m recipe.sppo.main_sppo \
     data.filter_overlong_prompts=True \
     data.truncation='error' \
     data.return_raw_chat=True \
-    actor_rollout_ref.model.path="$HOME/models/Qwen2.5-0.5B-Instruct" \
+    actor_rollout_ref.model.path="$HOME/models/Qwen2.5-7B-Instruct" \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.model.use_remove_padding=True \
     actor_rollout_ref.actor.optim.lr_warmup_steps_ratio=0.1 \
@@ -46,9 +46,9 @@ python3 -m recipe.sppo.main_sppo \
     trainer.logger=['console','wandb'] \
     trainer.project_name='sppo-sglang' \
     trainer.val_before_train=True \
-    trainer.experiment_name='Qwen2-0.5B-Instruct_hybrid_rm' \
+    trainer.experiment_name='Qwen2-7B-Instruct_hybrid_rm' \
     trainer.n_gpus_per_node=4 \
     trainer.nnodes=1 \
     trainer.save_freq=-1 \
     trainer.test_freq=1 \
-    trainer.total_epochs=15 $@
+    trainer.total_epochs=100 $@

@@ -27,7 +27,7 @@ NVIDIA GPUs
 .. _Qwen0.5b PRIME Script: https://github.com/volcengine/verl/blob/main/recipe/prime/run_prime_qwen.sh
 .. _Qwen0.5b PRIME Wandb: https://api.wandb.ai/links/zefan-wang-thu-tsinghua-university/rxd1btvb
 .. _Megatron Qwen2 7b GRPO Script with Math and GSM8k: https://github.com/eric-haibin-lin/verl-data/blob/experiments/gsm8k/qwen2-7b_math_megatron.log
-.. _Qwen0.5b SPPO Script: https://github.com/volcengine/verl/tree/main/recipe/sppo/README.md
+.. _Qwen 7B SPPO Script: https://github.com/volcengine/verl/tree/main/recipe/sppo/README.md
 
 +----------------------------------+------------------------+------------+-----------------------------------------------------------------------------------------------+
 | Model                            | Method                 | Test score |  Details                                                                                      |
@@ -52,7 +52,7 @@ NVIDIA GPUs
 +----------------------------------+------------------------+------------+-----------------------------------------------------------------------------------------------+
 | Qwen/Qwen2.5-7B-Instruct         | ReMax                  | 97         |   `Qwen7b ReMax Script`_, `Qwen7b ReMax Wandb`_                                               |
 +----------------------------------+------------------------+------------+-----------------------------------------------------------------------------------------------+
-| Qwen/Qwen2.5-0.5B-Instruct       | SPPO                   | 57         |   `Qwen0.5b SPPO Script`_                                                                     |
+| Qwen/Qwen2.5-7B-Instruct         | SPPO                   | 【TODO】    |   `Qwen 7B SPPO Script`_                                                                      |
 +----------------------------------+------------------------+------------+-----------------------------------------------------------------------------------------------+
 
 

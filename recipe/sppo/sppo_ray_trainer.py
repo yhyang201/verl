@@ -108,7 +108,6 @@ class RaySPPOTrainer(RayPPOTrainer):
         self.use_critic = False
 
         self._validate_config()
-        self._create_dataloader()
 
     def fit(self):
         """

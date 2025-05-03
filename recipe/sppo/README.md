@@ -1,6 +1,6 @@
 # SPPO: Self-Play Preference Optimization for Language Model Alignment
 
-This repository hosts the community implementation for the paper [Self-Play Preference Optimization for Language Model Alignment](https://arxiv.org/abs/2405.00675).
+This repository hosts the community implementation for the paper [Self-Play Preference Optimization for Language Model Alignment](https://arxiv.org/abs/2405.00675). SPPO can significantly enhance the performance of an LLM without strong external signals such as responses or preferences from GPT-4. It can outperform the model trained with iterative direct preference optimization (DPO), among other methods. SPPO is theoretically grounded, ensuring that the LLM can converge to the von Neumann winner (i.e., Nash equilibrium) under general, potentially intransitive preference, and empirically validated through extensive evaluations on multiple datasets.
 
 Paper Authors: [Yue Wu](https://yuewu.us/)\*, [Zhiqing Sun](https://www.cs.cmu.edu/~zhiqings/)\*, [Huizhuo Yuan](https://scholar.google.com/citations?user=8foZzX4AAAAJ)\*, [Kaixuan Ji](https://scholar.google.com/citations?user=FOoKDukAAAAJ), [Yiming Yang](https://www.cs.cmu.edu/~yiming/), [Quanquan Gu](https://web.cs.ucla.edu/~qgu/)
 
@@ -10,7 +10,7 @@ veRL Implementation Authors: [Yuhao Yang](https://github.com/yhyang201), [Chenya
 
 ## Reproduce the Experiment
 
-Note that we evaluate the performance of SPPO on MATH dataset. We gain 65.6 on MATH dataset after 20 epochs, roughly ranking top 20 on the [MATH leaderboard](https://paperswithcode.com/sota/math-word-problem-solving-on-math).
+Note that we evaluate the performance of SPPO on MATH dataset. We gain 65.6 on MATH dataset after 20 epochs from the start point of 46.6 with Qwen2.5-7B-Instruct, roughly ranking top 20 on the [MATH leaderboard](https://paperswithcode.com/sota/math-word-problem-solving-on-math).
 
 ```
 cd verl

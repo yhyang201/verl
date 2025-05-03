@@ -8,7 +8,9 @@ veRL Implementation Authors: [Yuhao Yang](https://github.com/yhyang201), [Chenya
 
 [[Webpage](https://uclaml.github.io/SPPO/)] [[Huggingface](https://huggingface.co/papers/2405.00675)] [[Paper](https://arxiv.org/abs/2405.00675)][[Original Implementation](https://github.com/uclaml/SPPO)]
 
-## Quickstart
+## Reproduce the Experiment
+
+Note that we evaluate the performance of SPPO on MATH dataset. We gain 65.6 on MATH dataset after 20 epochs, roughly ranking top 20 on the [MATH leaderboard](https://paperswithcode.com/sota/math-word-problem-solving-on-math).
 
 ```
 cd verl

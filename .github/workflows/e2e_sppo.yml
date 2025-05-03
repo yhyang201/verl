@@ -49,7 +49,7 @@ jobs:
       - name: Install the current repository
         run: |
           pip3 install -e .[test,gpu,sglang] --no-deps
-      - name: Prepare MATH (GSM8K) dataset
+      - name: Prepare MATH dataset
         run: |
           python3 examples/data_preprocess/math_dataset.py --local_dir ./data/math
       - name: Prepare Model checkpoint

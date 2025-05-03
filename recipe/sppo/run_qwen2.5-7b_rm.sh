@@ -52,3 +52,4 @@ python3 -m recipe.sppo.main_sppo \
     trainer.save_freq=-1 \
     trainer.test_freq=1 \
     trainer.total_epochs=1000 $@
+    # Note that we set lr_warmup_steps = 15 in config/sppo_trainer.yaml

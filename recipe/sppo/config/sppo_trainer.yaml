@@ -120,7 +120,7 @@ actor_rollout_ref:
       top_k: -1 # 0 for hf rollout, -1 for sglang rollout
       top_p: 1.0
       temperature: 0
-      n: 2
+      n: 2 # 2 will do validate, 1 will bypass
       do_sample: False # default eager for validation
     multi_turn: 
       enable: False  # should set rollout.name to sglang_async if True

@@ -21,10 +21,12 @@ This trainer supports model-agonistic model initialization with huggingface
 import uuid
 from copy import deepcopy
 from pprint import pprint
+from typing import Optional
 
 import numpy as np
 import ray
 import torch
+from torch.utils.data import Dataset, Sampler
 from tqdm import tqdm
 
 from verl import DataProto
@@ -80,6 +82,10 @@ class RaySPPOTrainer(RayPPOTrainer):
         processor=None,
         reward_fn=None,
         val_reward_fn=None,
+        train_dataset: Optional[Dataset] = None,
+        val_dataset: Optional[Dataset] = None,
+        collate_fn=None,
+        train_sampler: Optional[Sampler] = None,
     ):
         self.tokenizer = tokenizer
         self.processor = processor
@@ -108,6 +114,7 @@ class RaySPPOTrainer(RayPPOTrainer):
         self.use_critic = False
 
         self._validate_config()
+        self._create_dataloader(train_dataset, val_dataset, collate_fn, train_sampler)
 
     def fit(self):
         """

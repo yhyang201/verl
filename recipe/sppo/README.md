@@ -10,7 +10,7 @@ veRL Implementation Authors: [Yuhao Yang](https://github.com/yhyang201), [Chenya
 
 ## Reproduce the Experiment
 
-Note that we evaluate the performance of SPPO on MATH dataset. We gain 65.6 on MATH dataset after 20 epochs from the start point of 46.6 with Qwen2.5-7B-Instruct, roughly ranking top 20 on the [MATH leaderboard](https://paperswithcode.com/sota/math-word-problem-solving-on-math).
+We evaluate the performance of SPPO on the MATH dataset. Starting from an initial score of 46.6 with Qwen2.5-7B-Instruct, we achieve a score of 65.6 after 20 epochs of training, placing our model approximately in the top 20 on the [MATH leaderboard](https://paperswithcode.com/sota/math-word-problem-solving-on-math). It's important to note that veRL's internal evaluation metrics may not perfectly align with the official evaluation methodology for Qwen2.5-7B-Instruct. Therefore, for consistency and fair comparison, we report only the results based on veRL's evaluation framework.
 
 ```
 cd verl
